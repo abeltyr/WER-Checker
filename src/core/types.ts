@@ -129,9 +129,24 @@ export interface SampleReport {
   comparison: Comparison
 }
 
+/**
+ * Custom per-model/per-provider generation settings, configured in
+ * config/providers/<provider>.json or resolved from CLI flags.
+ */
+export interface ModelOptions {
+  thinkingBudget?: number
+  temperature?: number
+  topP?: number
+  maxOutputTokens?: number
+  /** Raw passthrough to the AI SDK's providerOptions, e.g. { google: { safetySettings: [...] } } */
+  providerOptions?: Record<string, Record<string, unknown>>
+}
+
 export interface RunConfig {
   model: string
   thinkingBudget: number
+  /** Extra generation settings from the provider config file (no secrets) */
+  modelOptions?: Omit<ModelOptions, "thinkingBudget">
   maxSamples?: number
   concurrency: number
   dataPattern: string

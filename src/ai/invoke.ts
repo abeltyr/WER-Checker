@@ -154,7 +154,8 @@ async function invokeModel(
     const { text, usage, response, providerMetadata } = await Promise.race([
       generateText({
         model: model.model,
-        providerOptions: model.providerOptions,
+        providerOptions: model.providerOptions as never,
+        ...model.callSettings,
         // Retries are handled by invokeModelWithRetry — the SDK's internal
         // retry layer would multiply attempts (3 × 3 = 9 requests per sample).
         maxRetries: 0,

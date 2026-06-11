@@ -1,0 +1,24 @@
+{
+  "defaultModel": "gpt-4o-audio-preview",
+  "options": {
+    "temperature": 0
+  },
+  "models": {
+    "gpt-4o-audio-preview": {
+      "description": "GPT-4o audio — strong multilingual transcription",
+      "pricing": {
+        "inputPer1M": 2.5,
+        "audioInputPer1M": 40.0,
+        "outputPer1M": 10.0
+      }
+    },
+    "gpt-4o-mini-audio-preview": {
+      "description": "GPT-4o mini audio — cheaper OpenAI cross-check",
+      "pricing": {
+        "inputPer1M": 0.15,
+        "audioInputPer1M": 10.0,
+        "outputPer1M": 0.6
+      }
+    }
+  }
+}

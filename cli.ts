@@ -8,7 +8,8 @@ import { datasetSource } from "./src/sources/dataset"
 import { runPipeline } from "./src/runner"
 import { runExtraction } from "./src/extract"
 import { runNormalize, cleaners } from "./src/normalize"
-import { KNOWN_MODELS, resolveProvider } from "./src/ai/models"
+import { getAllModels, resolveModelSetup, loadProviderFile, PROVIDERS } from "./src/ai/models"
+import type { Provider } from "./src/ai/models"
 import { openResultsDb } from "./src/storage/db"
 import type { DataSource } from "./src/sources/types"
 import type { PipelineConfig } from "./src/runner"
@@ -35,8 +36,9 @@ program
 program
   .command("run")
   .description("Run the ASR evaluation pipeline")
-  .option("-m, --model <model>", "Model name (default: env MODEL_NAME or gemini-2.0-flash)")
-  .option("-t, --thinking-budget <budget>", "Thinking tokens budget (default: env THINKING_BUDGET or 0)")
+  .option("-m, --model <model>", "Model name (default: env MODEL_NAME, else the provider config's defaultModel)")
+  .option("-P, --provider <provider>", `Provider whose config/defaultModel to use when -m is absent (${PROVIDERS.join("|")})`)
+  .option("-t, --thinking-budget <budget>", "Thinking tokens budget (default: env THINKING_BUDGET or provider config)")
   .option("-s, --max-samples <number>", "Maximum samples to process (default: env MAX_SAMPLES or all)")
   .option("-c, --concurrency <number>", "Concurrency level (default: env CONCURRENCY or 3)")
   .option("--timeout <seconds>", "Per-request hard deadline in seconds (default: env REQUEST_TIMEOUT_SECONDS or 120)")
@@ -53,17 +55,25 @@ program
 
     const envConfig = loadConfig({ requireApiKey: false })
 
-    // --api-key applies to whichever provider the selected model belongs to
-    const model = options.model ?? envConfig.model
-    const provider = resolveProvider(model)
+    // Model + custom settings: CLI flags > explicit env > provider config file
+    const setup = resolveModelSetup({
+      model: options.model,
+      provider: options.provider,
+      thinkingBudget: options.thinkingBudget !== undefined ? parseInt(options.thinkingBudget, 10) : undefined,
+      envModel: process.env.MODEL_NAME,
+      envThinkingBudget: process.env.THINKING_BUDGET !== undefined
+        ? parseInt(process.env.THINKING_BUDGET, 10)
+        : undefined,
+    })
+    const { model, provider } = setup
 
     const config: PipelineConfig = {
+      // --api-key applies to whichever provider the selected model belongs to
       geminiApiKey: (provider === "google" ? options.apiKey : undefined) ?? envConfig.geminiApiKey,
       openaiApiKey: (provider === "openai" ? options.apiKey : undefined) ?? envConfig.openaiApiKey,
       model,
-      thinkingBudget: options.thinkingBudget !== undefined
-        ? parseInt(options.thinkingBudget, 10)
-        : envConfig.thinkingBudget,
+      thinkingBudget: setup.thinkingBudget,
+      modelOptions: Object.keys(setup.options).length > 0 ? setup.options : undefined,
       maxSamples: options.maxSamples !== undefined
         ? parseInt(options.maxSamples, 10)
         : envConfig.maxSamples,
@@ -91,6 +101,9 @@ program
     console.log(chalk.gray("Configuration:"))
     console.log(chalk.gray(`  model:          ${config.model} (${provider})`))
     console.log(chalk.gray(`  thinkingBudget: ${config.thinkingBudget}`))
+    if (config.modelOptions) {
+      console.log(chalk.gray(`  modelOptions:   ${JSON.stringify(config.modelOptions)}`))
+    }
     console.log(chalk.gray(`  maxSamples:     ${config.maxSamples ?? "all"}`))
     console.log(chalk.gray(`  concurrency:    ${config.concurrency}`))
     console.log(chalk.gray(`  dataPattern:    ${config.dataPattern}`))
@@ -217,22 +230,32 @@ program
 
 program
   .command("models")
-  .description("List models known to be good for transcription, with pricing")
+  .description("List the configured transcription models, with pricing")
   .action(() => {
     console.log(chalk.bold.cyan("Transcription models (prices: USD per 1M tokens)"))
+    console.log(chalk.gray("Configured in config/providers/<provider>.json — add models or custom options there."))
     console.log()
+    const defaults: Partial<Record<Provider, string | undefined>> = {}
+    for (const provider of PROVIDERS) {
+      defaults[provider] = loadProviderFile(provider).defaultModel
+    }
     const header = `${"model".padEnd(28)} ${"provider".padEnd(9)} ${"text-in".padStart(8)} ${"audio-in".padStart(9)} ${"out".padStart(8)}`
     console.log(chalk.gray(header))
     console.log(chalk.gray("-".repeat(header.length)))
-    for (const m of KNOWN_MODELS) {
+    for (const m of getAllModels()) {
       const p = m.pricing
+      const tags = [
+        defaults[m.provider] === m.id ? chalk.cyan("(default)") : "",
+        m.custom ? chalk.magenta("(custom)") : "",
+      ].filter(Boolean).join(" ")
       console.log(
-        `${m.id.padEnd(28)} ${m.provider.padEnd(9)} ${("$" + p.inputPer1M.toFixed(2)).padStart(8)} ${("$" + p.audioInputPer1M.toFixed(2)).padStart(9)} ${("$" + p.outputPer1M.toFixed(2)).padStart(8)}  ${chalk.gray(m.description)}`,
+        `${m.id.padEnd(28)} ${m.provider.padEnd(9)} ${("$" + p.inputPer1M.toFixed(2)).padStart(8)} ${("$" + p.audioInputPer1M.toFixed(2)).padStart(9)} ${("$" + p.outputPer1M.toFixed(2)).padStart(8)}  ${chalk.gray(m.description)} ${tags}`,
       )
+      if (m.options) console.log(chalk.gray(`${"".padEnd(28)} options: ${JSON.stringify(m.options)}`))
       if (m.pricingNote) console.log(chalk.yellow(`${"".padEnd(28)} note: ${m.pricingNote}`))
     }
     console.log()
-    console.log(chalk.gray("Run any of them with: bun run cli.ts run -m <model> [-t <thinkingBudget>]"))
+    console.log(chalk.gray("Run one with: bun run cli.ts run -m <model>   — or a provider's default: run -P openai"))
     console.log(chalk.gray("Already-tested samples are skipped per model+thinking combination."))
     process.exit(0)
   })

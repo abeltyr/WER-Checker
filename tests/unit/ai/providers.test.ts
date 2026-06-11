@@ -1,21 +1,58 @@
 import { describe, it, expect } from "bun:test"
-import { GeminiProvider, createGeminiProvider } from "../../../src/ai/providers"
+import { createGoogleModel, createOpenAIModel } from "../../../src/ai/providers"
 
-describe("GeminiProvider", () => {
-  it("constructs with name and version", () => {
-    const provider = new GeminiProvider({ model: "gemini-2.0-flash", apiKey: "test-key" })
-    expect(provider.name).toBe("gemini")
-    expect(provider.version).toBeDefined()
-    expect(typeof provider.transcribe).toBe("function")
+describe("createGoogleModel", () => {
+  it("configures the requested Gemini model", () => {
+    const configured = createGoogleModel({ model: "gemini-2.0-flash", thinkingBudget: 0, apiKey: "k" })
+    expect(configured.modelId).toBe("gemini-2.0-flash")
+    expect((configured.model as any).modelId).toBe("gemini-2.0-flash")
   })
 
-  it("createGeminiProvider returns an ASRProvider", () => {
-    const provider = createGeminiProvider({
-      model: "gemini-2.0-flash",
-      apiKey: "test-key",
+  it("requires a Gemini key", () => {
+    expect(() => createGoogleModel({ model: "gemini-2.0-flash", thinkingBudget: 0, apiKey: "" }))
+      .toThrow("GEMINI_API_KEY")
+  })
+
+  it("merges the thinking budget into providerOptions", () => {
+    const configured = createGoogleModel({
+      model: "gemini-2.5-flash",
       thinkingBudget: 512,
+      apiKey: "k",
+      options: { providerOptions: { google: { safetySettings: [] } } },
     })
-    expect(provider.name).toBe("gemini")
-    expect(typeof provider.transcribe).toBe("function")
+    expect(configured.providerOptions).toEqual({
+      google: { safetySettings: [], thinkingConfig: { thinkingBudget: 512 } },
+    })
+  })
+})
+
+describe("createOpenAIModel", () => {
+  it("configures the requested OpenAI model", () => {
+    const configured = createOpenAIModel({
+      model: "gpt-4o-audio-preview",
+      thinkingBudget: 0,
+      apiKey: "google-key",
+      openaiApiKey: "k",
+    })
+    expect(configured.modelId).toBe("gpt-4o-audio-preview")
+    expect((configured.model as any).modelId).toBe("gpt-4o-audio-preview")
+  })
+
+  it("requires an OpenAI key", () => {
+    expect(() =>
+      createOpenAIModel({ model: "gpt-4o-audio-preview", thinkingBudget: 0, apiKey: "google-key" }),
+    ).toThrow("OPENAI_API_KEY")
+  })
+
+  it("ignores the Gemini-only thinking budget", () => {
+    const configured = createOpenAIModel({
+      model: "gpt-4o-audio-preview",
+      thinkingBudget: 1024,
+      apiKey: "google-key",
+      openaiApiKey: "k",
+      options: { temperature: 0 },
+    })
+    expect(configured.providerOptions).toBeUndefined()
+    expect(configured.callSettings).toEqual({ temperature: 0 })
   })
 })

@@ -78,6 +78,7 @@ async function runPipelineWithDb(
     thinkingBudget: config.thinkingBudget,
     apiKey: config.geminiApiKey,
     openaiApiKey: config.openaiApiKey,
+    options: config.modelOptions,
   })
 
   metricsCollector.reset()

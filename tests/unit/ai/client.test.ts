@@ -46,4 +46,26 @@ describe("createModel", () => {
       "GEMINI_API_KEY",
     )
   })
+
+  it("carries custom generation settings into callSettings", () => {
+    const configured = createModel({
+      model: "gemini-2.0-flash",
+      thinkingBudget: 0,
+      apiKey: "test-key",
+      options: { temperature: 0, topP: 0.9, maxOutputTokens: 2048 },
+    })
+    expect(configured.callSettings).toEqual({ temperature: 0, topP: 0.9, maxOutputTokens: 2048 })
+  })
+
+  it("merges raw providerOptions from the config with the thinking config", () => {
+    const configured = createModel({
+      model: "gemini-2.5-flash",
+      thinkingBudget: 256,
+      apiKey: "test-key",
+      options: { providerOptions: { google: { safetySettings: [] } } },
+    })
+    expect(configured.providerOptions).toEqual({
+      google: { safetySettings: [], thinkingConfig: { thinkingBudget: 256 } },
+    })
+  })
 })

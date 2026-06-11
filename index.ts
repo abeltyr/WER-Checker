@@ -1,5 +1,6 @@
 import { stat } from "node:fs/promises"
 import { loadConfig } from "./src/config"
+import { resolveModelSetup } from "./src/ai/models"
 import { parquetSource } from "./src/sources/parquet"
 import { datasetSource } from "./src/sources/dataset"
 import { runPipeline } from "./src/runner"
@@ -10,7 +11,20 @@ async function main() {
   console.log("  WER — Amharic ASR Evaluation Pipeline")
   console.log("=".repeat(50))
 
-  const config: PipelineConfig = loadConfig()
+  // Explicit env > provider config file defaults
+  const setup = resolveModelSetup({
+    envModel: process.env.MODEL_NAME,
+    envThinkingBudget: process.env.THINKING_BUDGET !== undefined
+      ? parseInt(process.env.THINKING_BUDGET, 10)
+      : undefined,
+  })
+
+  const config: PipelineConfig = {
+    ...loadConfig(),
+    model: setup.model,
+    thinkingBudget: setup.thinkingBudget,
+    modelOptions: Object.keys(setup.options).length > 0 ? setup.options : undefined,
+  }
   console.log(`  model:          ${config.model}`)
   console.log(`  thinkingBudget: ${config.thinkingBudget}`)
   console.log(`  maxSamples:     ${config.maxSamples ?? "all"}`)

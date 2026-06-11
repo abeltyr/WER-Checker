@@ -58,11 +58,12 @@ cli.ts                      CLI interface with argument parsing
 │   ├── parquet/            DuckDB-based parquet reader (Hugging-Face-style)
 │   └── dataset/            Canonical dataset reader (folder per sample: wav + json)
 ├── src/normalize/          Raw data → canonical DataPoint cleanup (one cleaner per case)
-├── src/ai/                 AI SDK Google provider setup, prompt loading, invocation
-│   ├── client.ts           Model creation with retry support
+├── src/ai/                 Model setup, prompt loading, invocation, cost estimation
+│   ├── client.ts           createModel() — routes a model id to its provider
+│   ├── providers/          One file per provider: google.ts, openai.ts
+│   ├── models.ts           Built-in model registry + provider config file loading
 │   ├── invoke.ts           Retry logic with exponential backoff + Zod validation
-│   ├── providers/          ASR provider abstraction (Gemini, future: Whisper, etc.)
-│   └── types.ts            Provider interfaces
+│   └── types.ts            ModelConfig / ConfiguredModel shared by all providers
 ├── src/analysis/           WER, CER, MER, WIL, BLEU multi-dimension comparison
 ├── src/extract/            Parquet → WAV + manifest extraction (no AI calls)
 ├── src/report/             Per-sample + summary report writers
@@ -204,9 +205,32 @@ they only consume `Sample`.
 
 ## Models, tokens, and cost
 
-`bun run cli.ts models` lists the curated transcription models (Gemini and
-OpenAI families) with their USD-per-1M-token pricing. Pick one with
-`run -m <model>`; OpenAI models additionally need `OPENAI_API_KEY` in `.env`.
+Each provider has its own config file holding its model list and custom
+settings:
+
+```
+config/providers/
+├── google.json     defaultModel, models (pricing, description), options
+└── openai.json     (thinkingBudget, temperature, topP, maxOutputTokens,
+                     raw providerOptions passthrough e.g. safetySettings)
+```
+
+Add a model or tweak pricing/options by editing the JSON — no code changes.
+Options merge as: CLI flag > explicit env var > per-model options >
+provider-wide options. Built-in defaults (`src/ai/models.ts`) apply when a
+config file is absent.
+
+Model selection:
+
+```bash
+bun run cli.ts models                 # list everything configured, with pricing
+bun run cli.ts run -m gemini-2.5-pro  # explicit model
+bun run cli.ts run -P openai          # that provider's defaultModel from its config
+```
+
+`bun run cli.ts models` lists the configured transcription models (Gemini and
+OpenAI families) with their USD-per-1M-token pricing. OpenAI models
+additionally need `OPENAI_API_KEY` in `.env`.
 
 Every request records input/output tokens and an estimated USD cost
 (audio input is billed at its own rate; when the provider reports the

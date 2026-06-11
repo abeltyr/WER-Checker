@@ -51,6 +51,23 @@ describe("invokeModelWithRetry — success paths", () => {
     expect(result.parsedResponse!.transcription).toBe("ሰላም")
   })
 
+  it("forwards custom call settings to the model request", async () => {
+    let received: any
+    const output = makeGeminiOutput("ሰላም")
+    const respond = textResponse(JSON.stringify(output))
+    const model = mockModel(async (options: any) => {
+      received = options
+      return respond()
+    })
+    model.callSettings = { temperature: 0, maxOutputTokens: 2048 }
+
+    const result = await invokeModelWithRetry(model as any, makeSample(), prompts)
+
+    expect(result.success).toBe(true)
+    expect(received.temperature).toBe(0)
+    expect(received.maxOutputTokens).toBe(2048)
+  })
+
   it("keeps success=true with undefined parsedResponse for non-JSON output", async () => {
     const model = mockModel(textResponse("I cannot transcribe this audio."))
 

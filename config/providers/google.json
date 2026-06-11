@@ -1,0 +1,59 @@
+{
+  "defaultModel": "gemini-3-flash-preview",
+  "options": {
+    "thinkingBudget": 0,
+    "temperature": 0
+  },
+  "models": {
+    "gemini-3-flash-preview": {
+      "description": "Gemini 3 Flash (preview) — current default",
+      "pricing": {
+        "inputPer1M": 0.3,
+        "audioInputPer1M": 1.0,
+        "outputPer1M": 3
+      },
+      "pricingNote": "estimate (preview pricing not final) — verify before relying on cost numbers"
+    },
+    "gemini-3-pro-preview": {
+      "description": "Gemini 3 Pro (preview) — strongest Gemini",
+      "pricing": {
+        "inputPer1M": 2.0,
+        "audioInputPer1M": 2.0,
+        "outputPer1M": 12.0
+      },
+      "pricingNote": "≤200k context tier; estimate — verify before relying on cost numbers"
+    },
+    "gemini-2.5-pro": {
+      "description": "Gemini 2.5 Pro — strong on hard audio",
+      "pricing": {
+        "inputPer1M": 1.25,
+        "audioInputPer1M": 1.25,
+        "outputPer1M": 10.0
+      }
+    },
+    "gemini-2.5-flash": {
+      "description": "Gemini 2.5 Flash — good quality/cost balance",
+      "pricing": {
+        "inputPer1M": 0.3,
+        "audioInputPer1M": 1.0,
+        "outputPer1M": 2.5
+      }
+    },
+    "gemini-2.5-flash-lite": {
+      "description": "Gemini 2.5 Flash-Lite — cheapest Gemini with audio",
+      "pricing": {
+        "inputPer1M": 0.1,
+        "audioInputPer1M": 0.3,
+        "outputPer1M": 0.4
+      }
+    },
+    "gemini-2.0-flash": {
+      "description": "Gemini 2.0 Flash — fast, cheap baseline",
+      "pricing": {
+        "inputPer1M": 0.1,
+        "audioInputPer1M": 0.7,
+        "outputPer1M": 0.4
+      }
+    }
+  }
+}

@@ -1,10 +1,16 @@
 import { z } from "zod"
 import type { RunConfig } from "../core/types"
 
+// .env.example ships `KEY=` lines — an empty string must mean "not set"
+const optionalKey = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  z.string().optional(),
+)
+
 const envSchema = z.object({
-  GEMINI_API_KEY: z.string().min(1).optional(),
-  GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
-  OPENAI_API_KEY: z.string().min(1).optional(),
+  GEMINI_API_KEY: optionalKey,
+  GOOGLE_GENERATIVE_AI_API_KEY: optionalKey,
+  OPENAI_API_KEY: optionalKey,
   MODEL_NAME: z.string().default("gemini-2.0-flash"),
   THINKING_BUDGET: z.coerce.number().int().min(0).default(0),
   DATA_PATTERN: z.string().default("data/*/train-*.parquet"),
