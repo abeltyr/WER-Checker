@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  wer-pipeline:
+    build: .
+    container_name: wer-asr-pipeline
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MODEL_NAME=${MODEL_NAME:-gemini-2.0-flash}
+      - THINKING_BUDGET=${THINKING_BUDGET:-0}
+      - MAX_SAMPLES=${MAX_SAMPLES:-100}
+      - CONCURRENCY=${CONCURRENCY:-3}
+      - DATA_PATTERN=${DATA_PATTERN:-data/*/train-*.parquet}
+      - OUTPUT_DIR=${OUTPUT_DIR:-data/results}
+    volumes:
+      # the app resolves data/ relative to its working dir, /app
+      - ./data:/app/data
+    command: bun run cli.ts run
+    restart: "no"
+
+  wer-validate:
+    build: .
+    container_name: wer-validate
+    volumes:
+      - ./data:/app/data
+    command: bun run cli.ts validate
+    restart: "no"
