@@ -71,6 +71,7 @@ program
       // --api-key applies to whichever provider the selected model belongs to
       geminiApiKey: (provider === "google" ? options.apiKey : undefined) ?? envConfig.geminiApiKey,
       openaiApiKey: (provider === "openai" ? options.apiKey : undefined) ?? envConfig.openaiApiKey,
+      hasabApiKey: (provider === "hasab" ? options.apiKey : undefined) ?? envConfig.hasabApiKey,
       model,
       thinkingBudget: setup.thinkingBudget,
       modelOptions: Object.keys(setup.options).length > 0 ? setup.options : undefined,
@@ -95,6 +96,10 @@ program
     }
     if (provider === "openai" && !config.openaiApiKey) {
       console.error(chalk.red(`Model "${model}" needs an OpenAI key — set OPENAI_API_KEY in .env or pass --api-key`))
+      process.exit(1)
+    }
+    if (provider === "hasab" && !config.hasabApiKey) {
+      console.error(chalk.red(`Model "${model}" needs a Hasab key — set HASAB_API_KEY in .env or pass --api-key`))
       process.exit(1)
     }
 
@@ -242,6 +247,7 @@ program
     const header = `${"model".padEnd(28)} ${"provider".padEnd(9)} ${"text-in".padStart(8)} ${"audio-in".padStart(9)} ${"out".padStart(8)}`
     console.log(chalk.gray(header))
     console.log(chalk.gray("-".repeat(header.length)))
+    const price = (v: number | undefined) => (v === undefined ? "—" : "$" + v.toFixed(2))
     for (const m of getAllModels()) {
       const p = m.pricing
       const tags = [
@@ -249,7 +255,7 @@ program
         m.custom ? chalk.magenta("(custom)") : "",
       ].filter(Boolean).join(" ")
       console.log(
-        `${m.id.padEnd(28)} ${m.provider.padEnd(9)} ${("$" + p.inputPer1M.toFixed(2)).padStart(8)} ${("$" + p.audioInputPer1M.toFixed(2)).padStart(9)} ${("$" + p.outputPer1M.toFixed(2)).padStart(8)}  ${chalk.gray(m.description)} ${tags}`,
+        `${m.id.padEnd(28)} ${m.provider.padEnd(9)} ${price(p?.inputPer1M).padStart(8)} ${price(p?.audioInputPer1M).padStart(9)} ${price(p?.outputPer1M).padStart(8)}  ${chalk.gray(m.description)} ${tags}`,
       )
       if (m.options) console.log(chalk.gray(`${"".padEnd(28)} options: ${JSON.stringify(m.options)}`))
       if (m.pricingNote) console.log(chalk.yellow(`${"".padEnd(28)} note: ${m.pricingNote}`))

@@ -3,9 +3,15 @@ import { join, resolve } from "node:path"
 import { z } from "zod"
 import type { ModelOptions } from "../core/types"
 
-export type Provider = "google" | "openai"
+export type Provider = "google" | "openai" | "hasab"
 
-export const PROVIDERS: Provider[] = ["google", "openai"]
+export const PROVIDERS: Provider[] = ["google", "openai", "hasab"]
+
+/**
+ * Providers billed per token, whose models therefore require a pricing block.
+ * Dedicated ASR providers (Hasab) aren't token-billed, so they may omit it.
+ */
+const TOKEN_BILLED_PROVIDERS: ReadonlySet<Provider> = new Set(["google", "openai"])
 
 export interface ModelPricing {
   /** USD per 1M text input tokens */
@@ -20,7 +26,8 @@ export interface ModelInfo {
   id: string
   provider: Provider
   description: string
-  pricing: ModelPricing
+  /** Absent for providers that aren't token-billed (e.g. Hasab) — cost shows "—" */
+  pricing?: ModelPricing
   /** Provenance of the prices — update when the vendors change pricing */
   pricingNote?: string
   /** Generation settings attached to this model in the provider config */
@@ -84,6 +91,12 @@ export const KNOWN_MODELS: ModelInfo[] = [
     provider: "openai",
     description: "GPT-4o mini audio — cheaper OpenAI cross-check",
     pricing: { inputPer1M: 0.15, audioInputPer1M: 10.0, outputPer1M: 0.6 },
+  },
+  {
+    id: "hasab-asr",
+    provider: "hasab",
+    description: "Hasab AI — Amharic speech-to-text (dedicated ASR; no token billing)",
+    pricingNote: "not token-billed — cost is reported as — (unavailable)",
   },
 ]
 
@@ -178,7 +191,7 @@ export function getAllModels(baseDir = DEFAULT_PROVIDER_CONFIG_DIR): ModelInfo[]
     }
     for (const [id, entry] of Object.entries(file.models ?? {})) {
       if (seen.has(id)) continue
-      if (!entry.pricing) {
+      if (!entry.pricing && TOKEN_BILLED_PROVIDERS.has(provider)) {
         throw new Error(`Provider config for ${provider}: custom model "${id}" needs a pricing block`)
       }
       merged.push({
@@ -203,6 +216,7 @@ export function getModelInfo(modelId: string, baseDir = DEFAULT_PROVIDER_CONFIG_
 export function resolveProvider(modelId: string, baseDir = DEFAULT_PROVIDER_CONFIG_DIR): Provider {
   const known = getModelInfo(modelId, baseDir)
   if (known) return known.provider
+  if (modelId.startsWith("hasab")) return "hasab"
   return modelId.startsWith("gpt-") || modelId.startsWith("o1") || modelId.startsWith("o3")
     ? "openai"
     : "google"
@@ -308,7 +322,7 @@ export function estimateCostUsd(
   baseDir = DEFAULT_PROVIDER_CONFIG_DIR,
 ): number | undefined {
   const info = getModelInfo(modelId, baseDir)
-  if (!info) return undefined
+  if (!info || !info.pricing) return undefined
 
   const audioTokens = Math.min(usage.audioInputTokens ?? usage.inputTokens, usage.inputTokens)
   const textTokens = usage.inputTokens - audioTokens

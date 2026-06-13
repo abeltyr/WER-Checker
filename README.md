@@ -60,7 +60,8 @@ cli.ts                      CLI interface with argument parsing
 ├── src/normalize/          Raw data → canonical DataPoint cleanup (one cleaner per case)
 ├── src/ai/                 Model setup, prompt loading, invocation, cost estimation
 │   ├── client.ts           createModel() — routes a model id to its provider
-│   ├── providers/          One file per provider: google.ts, openai.ts
+│   ├── providers/          One file per provider: google.ts, openai.ts (LLM
+│   │                       transcription) + hasab.ts (dedicated ASR REST API)
 │   ├── models.ts           Built-in model registry + provider config file loading
 │   ├── invoke.ts           Retry logic with exponential backoff + Zod validation
 │   └── types.ts            ModelConfig / ConfiguredModel shared by all providers
@@ -211,8 +212,9 @@ settings:
 ```
 config/providers/
 ├── google.json     defaultModel, models (pricing, description), options
-└── openai.json     (thinkingBudget, temperature, topP, maxOutputTokens,
-                     raw providerOptions passthrough e.g. safetySettings)
+├── openai.json     (thinkingBudget, temperature, topP, maxOutputTokens,
+│                    raw providerOptions passthrough e.g. safetySettings)
+└── hasab.json      defaultModel + models (description only — see note below)
 ```
 
 Add a model or tweak pricing/options by editing the JSON — no code changes.
@@ -226,11 +228,29 @@ Model selection:
 bun run cli.ts models                 # list everything configured, with pricing
 bun run cli.ts run -m gemini-2.5-pro  # explicit model
 bun run cli.ts run -P openai          # that provider's defaultModel from its config
+bun run cli.ts run -P hasab           # cross-check against Hasab's Amharic ASR
 ```
 
 `bun run cli.ts models` lists the configured transcription models (Gemini and
 OpenAI families) with their USD-per-1M-token pricing. OpenAI models
 additionally need `OPENAI_API_KEY` in `.env`.
+
+### Hasab — dedicated Amharic ASR provider
+
+[Hasab AI](https://developer.hasab.ai/) (`hasab-asr`, needs `HASAB_API_KEY`) is
+a speech-to-text REST API rather than an LLM, so it slots in as a *transcription*
+provider: each clip is POSTed to its `/upload-audio` endpoint and the returned
+text is scored with the same WER/CER/… metrics as every other model. Two things
+differ from the Gemini/OpenAI providers:
+
+- **No token billing.** Hasab isn't priced per token, so its cost column shows
+  `—` and `hasab.json` carries no pricing block.
+- **Transcription only.** It does not predict gender, dialect, or speaker count,
+  so those comparison dimensions are left blank — only the text metrics are
+  meaningful for it.
+
+`HASAB_BASE_URL` and `HASAB_SOURCE_LANGUAGE` (default `amh`) can be overridden in
+`.env` for other endpoints or languages.
 
 Every request records input/output tokens and an estimated USD cost
 (audio input is billed at its own rate; when the provider reports the
@@ -305,7 +325,11 @@ state and already-written reports are read back from the database.
 
 | Variable | Required | Description |
 |---|---|---|
-| `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` | Yes | Google AI / Gemini API key |
+| `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` | Yes (Gemini models) | Google AI / Gemini API key |
+| `OPENAI_API_KEY` | Yes (OpenAI models) | OpenAI API key for `gpt-4o-*-audio-preview` |
+| `HASAB_API_KEY` | Yes (Hasab models) | Hasab AI key for `hasab-asr` |
+| `HASAB_BASE_URL` | No (default: `https://api.hasab.ai/api/v1`) | Hasab API base URL |
+| `HASAB_SOURCE_LANGUAGE` | No (default: `amh`) | Source language code sent to Hasab |
 | `MODEL_NAME` | No (default: `gemini-2.0-flash`) | Model identifier |
 | `THINKING_BUDGET` | No (default: `0`) | Thinking tokens (0 = off) |
 | `DATA_PATTERN` | No (default: `data/*/train-*.parquet`) | Glob for parquet files |

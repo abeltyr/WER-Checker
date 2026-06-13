@@ -2,18 +2,28 @@ import { describe, it, expect } from "bun:test"
 import { KNOWN_MODELS, getModelInfo, resolveProvider, estimateCostUsd } from "../../../src/ai/models"
 
 describe("model registry", () => {
-  it("contains both Google and OpenAI transcription models", () => {
+  it("contains Google, OpenAI, and Hasab transcription models", () => {
     const providers = new Set(KNOWN_MODELS.map((m) => m.provider))
-    expect(providers).toEqual(new Set(["google", "openai"]))
+    expect(providers).toEqual(new Set(["google", "openai", "hasab"]))
     expect(KNOWN_MODELS.length).toBeGreaterThanOrEqual(4)
   })
 
-  it("every model has complete, positive pricing", () => {
+  it("every token-billed model has complete, positive pricing", () => {
     for (const m of KNOWN_MODELS) {
+      // Dedicated ASR providers (Hasab) aren't token-billed and carry no pricing.
+      if (!m.pricing) continue
       expect(m.pricing.inputPer1M).toBeGreaterThan(0)
       expect(m.pricing.audioInputPer1M).toBeGreaterThan(0)
       expect(m.pricing.outputPer1M).toBeGreaterThan(0)
     }
+  })
+
+  it("registers Hasab as a pricing-free ASR provider", () => {
+    const hasab = getModelInfo("hasab-asr")!
+    expect(hasab.provider).toBe("hasab")
+    expect(hasab.pricing).toBeUndefined()
+    // no pricing → cost is unavailable, never zero
+    expect(estimateCostUsd("hasab-asr", { inputTokens: 1000, outputTokens: 0 })).toBeUndefined()
   })
 
   it("looks up models by id", () => {
@@ -25,6 +35,7 @@ describe("model registry", () => {
   it("resolves providers for unknown models by prefix", () => {
     expect(resolveProvider("gpt-5-audio")).toBe("openai")
     expect(resolveProvider("gemini-9-ultra")).toBe("google")
+    expect(resolveProvider("hasab-next")).toBe("hasab")
   })
 })
 

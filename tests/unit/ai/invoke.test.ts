@@ -149,3 +149,45 @@ describe("invokeModelWithRetry — failure and retry paths", () => {
     expect(result.parsedResponse).toBeDefined()
   })
 })
+
+describe("invokeModelWithRetry — transcription providers", () => {
+  it("invokes a transcription provider and maps the result", async () => {
+    const model = {
+      modelId: "hasab-asr",
+      transcribe: async () => ({
+        transcription: "ሰላም አለም",
+        raw: { transcription: "ሰላም አለም" },
+        tokensUsed: 42,
+        modelVersion: "hasab-asr",
+      }),
+    }
+
+    const result = await invokeModelWithRetry(model as any, makeSample(), prompts)
+
+    expect(result.success).toBe(true)
+    expect(result.parsedResponse!.transcription).toBe("ሰላም አለም")
+    // Hasab predicts no gender/dialect/speakers — those dimensions stay blank
+    expect(result.parsedResponse!.gender).toBe("")
+    expect(result.parsedResponse!.speaker_count).toBe(0)
+    expect(result.tokenUsage.total).toBe(42)
+    expect(result.costUsd).toBeUndefined() // not token-billed
+    expect(result.modelVersion).toBe("hasab-asr")
+    expect(result.rawResponse).toEqual({ transcription: "ሰላም አለም" })
+  })
+
+  it("retries a retryable transcription error", async () => {
+    let calls = 0
+    const model = {
+      modelId: "hasab-asr",
+      transcribe: async () => {
+        calls++
+        throw new Error("Hasab API 503 Service Unavailable")
+      },
+    }
+
+    const result = await invokeModelWithRetry(model as any, makeSample(), prompts, { ...FAST_RETRY, maxRetries: 2 })
+
+    expect(result.success).toBe(false)
+    expect(calls).toBe(2)
+  })
+})

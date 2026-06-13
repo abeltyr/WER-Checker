@@ -11,6 +11,7 @@ const envSchema = z.object({
   GEMINI_API_KEY: optionalKey,
   GOOGLE_GENERATIVE_AI_API_KEY: optionalKey,
   OPENAI_API_KEY: optionalKey,
+  HASAB_API_KEY: optionalKey,
   MODEL_NAME: z.string().default("gemini-2.0-flash"),
   THINKING_BUDGET: z.coerce.number().int().min(0).default(0),
   DATA_PATTERN: z.string().default("data/*/train-*.parquet"),
@@ -24,7 +25,7 @@ type Env = z.infer<typeof envSchema>
 
 export function loadConfig(
   options?: { requireApiKey?: boolean },
-): RunConfig & { geminiApiKey: string; openaiApiKey?: string } {
+): RunConfig & { geminiApiKey: string; openaiApiKey?: string; hasabApiKey?: string } {
   const requireApiKey = options?.requireApiKey ?? true
 
   const result = envSchema.safeParse(process.env)
@@ -47,6 +48,7 @@ export function loadConfig(
   return {
     geminiApiKey: geminiApiKey ?? "",
     openaiApiKey: env.OPENAI_API_KEY,
+    hasabApiKey: env.HASAB_API_KEY,
     model: env.MODEL_NAME,
     thinkingBudget: env.THINKING_BUDGET,
     maxSamples: env.MAX_SAMPLES,

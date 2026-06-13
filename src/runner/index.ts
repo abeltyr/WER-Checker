@@ -20,6 +20,7 @@ import pMap from "p-map"
 export interface PipelineConfig extends RunConfig {
   geminiApiKey: string
   openaiApiKey?: string
+  hasabApiKey?: string
   resume?: string
   /** Re-test samples even if this model+thinking combination already has results */
   retest?: boolean
@@ -58,7 +59,7 @@ async function runPipelineWithDb(
 
   // Reports are persisted to disk and the database — they must never carry
   // credentials or run-control flags, only the reproducible RunConfig.
-  const { geminiApiKey: _key, openaiApiKey: _okey, resume: _resume, retest: _retest, ...reportConfig } = config
+  const { geminiApiKey: _key, openaiApiKey: _okey, hasabApiKey: _hkey, resume: _resume, retest: _retest, ...reportConfig } = config
 
   let checkpoint = checkpointManager.load()
 
@@ -78,6 +79,7 @@ async function runPipelineWithDb(
     thinkingBudget: config.thinkingBudget,
     apiKey: config.geminiApiKey,
     openaiApiKey: config.openaiApiKey,
+    hasabApiKey: config.hasabApiKey,
     options: config.modelOptions,
   })
 

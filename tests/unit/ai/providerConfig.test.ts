@@ -57,9 +57,9 @@ describe("provider config files", () => {
       },
     })
 
-    expect(getModelInfo("gemini-2.0-flash", dir)!.pricing.audioInputPer1M).toBe(9)
+    expect(getModelInfo("gemini-2.0-flash", dir)!.pricing!.audioInputPer1M).toBe(9)
     // other built-ins keep their prices
-    expect(getModelInfo("gemini-2.5-pro", dir)!.pricing.outputPer1M).toBe(10)
+    expect(getModelInfo("gemini-2.5-pro", dir)!.pricing!.outputPer1M).toBe(10)
   })
 
   it("rejects a custom model without pricing and malformed files", async () => {

@@ -1,0 +1,8 @@
+{
+  "defaultModel": "hasab-asr",
+  "models": {
+    "hasab-asr": {
+      "description": "Hasab AI — Amharic speech-to-text (dedicated ASR; no token billing)"
+    }
+  }
+}

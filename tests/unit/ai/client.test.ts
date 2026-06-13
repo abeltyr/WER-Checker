@@ -41,6 +41,19 @@ describe("createModel", () => {
     ).toThrow("OPENAI_API_KEY")
   })
 
+  it("routes Hasab model ids to a transcription provider", () => {
+    const configured = createModel({ model: "hasab-asr", thinkingBudget: 0, apiKey: "", hasabApiKey: "h" })
+    expect(configured.modelId).toBe("hasab-asr")
+    expect(typeof configured.transcribe).toBe("function")
+    expect(configured.model).toBeUndefined() // no AI-SDK language model
+  })
+
+  it("fails clearly when a Hasab model is selected without a Hasab key", () => {
+    expect(() => createModel({ model: "hasab-asr", thinkingBudget: 0, apiKey: "" })).toThrow(
+      "HASAB_API_KEY",
+    )
+  })
+
   it("fails clearly when a Gemini model is selected without a Gemini key", () => {
     expect(() => createModel({ model: "gemini-2.0-flash", thinkingBudget: 0, apiKey: "" })).toThrow(
       "GEMINI_API_KEY",

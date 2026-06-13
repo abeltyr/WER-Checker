@@ -151,9 +151,46 @@ async function invokeModel(
   let hardDeadline: ReturnType<typeof setTimeout> | undefined
 
   try {
+    // Dedicated transcription providers (Hasab) return text directly over a
+    // REST call — they bypass generateText entirely. Same timeout/heartbeat
+    // scaffolding, different transport.
+    if (model.transcribe) {
+      const result = await Promise.race([
+        model.transcribe(sample, AbortSignal.timeout(timeoutMs)),
+        new Promise<never>((_, reject) => {
+          hardDeadline = setTimeout(
+            () => reject(new Error(`request timed out after ${timeoutMs + HARD_DEADLINE_GRACE_MS}ms (hard deadline)`)),
+            timeoutMs + HARD_DEADLINE_GRACE_MS,
+          )
+        }),
+      ])
+
+      const elapsed = performance.now() - start
+      return {
+        sampleId: sample.id,
+        success: true,
+        latencyMs: Math.round(elapsed),
+        // ASR providers don't report an input/output split — record the
+        // provider's total (when given) and leave the split at zero.
+        tokenUsage: { input: 0, output: 0, total: result.tokensUsed ?? 0 },
+        // Not token-billed, so there is no per-token cost to estimate.
+        costUsd: estimateCostUsd(model.modelId, { inputTokens: 0, outputTokens: 0 }),
+        modelVersion: result.modelVersion ?? model.modelId,
+        rawResponse: result.raw,
+        // Transcription-only: the gender/dialect/speaker dimensions it can't
+        // predict stay blank, so only the text metrics count against it.
+        parsedResponse: { transcription: result.transcription, gender: "", dialect: "", speaker_count: 0 },
+      }
+    }
+
+    const languageModel = model.model
+    if (!languageModel) {
+      throw new Error(`Model "${model.modelId}" has neither a language model nor a transcribe function`)
+    }
+
     const { text, usage, response, providerMetadata } = await Promise.race([
       generateText({
-        model: model.model,
+        model: languageModel,
         providerOptions: model.providerOptions as never,
         ...model.callSettings,
         // Retries are handled by invokeModelWithRetry — the SDK's internal

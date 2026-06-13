@@ -1,5 +1,5 @@
 import { resolveProvider } from "./models"
-import { createGoogleModel, createOpenAIModel } from "./providers"
+import { createGoogleModel, createOpenAIModel, createHasabModel } from "./providers"
 import type { ModelConfig, ConfiguredModel } from "./types"
 
 export type { ModelConfig, ConfiguredModel } from "./types"
@@ -11,5 +11,12 @@ export type { ModelConfig, ConfiguredModel } from "./types"
  * misconfigured.
  */
 export function createModel(cfg: ModelConfig): ConfiguredModel {
-  return resolveProvider(cfg.model) === "openai" ? createOpenAIModel(cfg) : createGoogleModel(cfg)
+  switch (resolveProvider(cfg.model)) {
+    case "openai":
+      return createOpenAIModel(cfg)
+    case "hasab":
+      return createHasabModel(cfg)
+    default:
+      return createGoogleModel(cfg)
+  }
 }
